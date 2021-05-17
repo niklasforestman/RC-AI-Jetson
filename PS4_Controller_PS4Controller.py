@@ -1,5 +1,6 @@
 #___________KOPIERTER TEIL
 from pyPS4Controller.controller import Controller
+from PyQt5 import QtCore
 import time
 
 throttle = 0

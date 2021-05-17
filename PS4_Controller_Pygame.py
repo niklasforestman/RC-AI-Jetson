@@ -1,5 +1,4 @@
 from PyQt5 import QtCore
-from PyQt5.QtCore import *
 import os
 import pygame
 
@@ -54,16 +53,17 @@ class MyControllerThread_PYGAME(QtCore.QThread):
 
                 os.system('clear')
 
-                self.threadFinished.emit(self.axis_data, self.button_data, self.hat_data )
+            self.threadFinished.emit(self.axis_data, self.button_data, self.hat_data )
 
 
 
 
-
-
+def printData(axis_data, button_data, hat_data):
+    print(axis_data)        # oder save to .svg oder return, oder  aehnliches
+    print(button_data)
+    print(hat_data)
 
 if __name__ == "__main__":
-
     myController = MyControllerThread_PYGAME
     myController.threadFinished.connect(printData)
     myController.start()
