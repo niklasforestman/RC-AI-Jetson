@@ -56,8 +56,6 @@ class MyControllerThread_PYGAME(QtCore.QThread):
             self.threadFinished.emit(self.axis_data, self.button_data, self.hat_data )
 
 
-
-
 def printData(axis_data, button_data, hat_data):
     print(axis_data)        # oder save to .svg oder return, oder  aehnliches
     print(button_data)
