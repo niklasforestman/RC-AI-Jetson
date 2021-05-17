@@ -46,8 +46,7 @@ class MyController(Controller):
         steering =  self.on_L3_left(self.event.value) + self.on_L3_right(self.event.value)
 
         return brake, throttle, steering
-controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
+#controller = MyController(interface="/dev/input/js0", connecting_using_ds4drv=False)
 # you can start listening before controller is paired, as long as you pair it within the timeout window
-
-controller.listen(timeout=60)
-print(controller.output())
+#controller.listen(timeout=60)
+#print(controller.output())
