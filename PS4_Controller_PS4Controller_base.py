@@ -3,6 +3,8 @@ from pyPS4Controller.controller import Controller
 from PyQt5 import QtCore
 import time
 
+# hier ist die dokumentation von der library https://pypi.org/project/pyPS4Controller/
+
 class MyController(Controller):
 
     def __init__(self, **kwargs):
