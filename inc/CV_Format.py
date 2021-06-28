@@ -1,6 +1,8 @@
 import cv2
 #import os
 
+global savepath
+global run_name
 
 # gstreamer_pipeline returns a GStreamer pipeline for capturing from the CSI camera
 # Defaults to 1280x720 @ 60fps
@@ -15,7 +17,7 @@ def init_camera():
 
 def capture_camera(cap, index_image):
     return_key, frame = cap.read()
-    pfad = save_path + run_name + '/' + str(index_image) + '.jpg'
+    pfad = savepath + run_name + '/' + str(index_image) + '.jpg'
     cv2.imwrite(pfad, frame)
 
 def close_camera(cap):
