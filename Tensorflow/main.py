@@ -18,23 +18,23 @@ import random
 
 
 def zoom(image):
-  zoom = iaa.Affine(scale=(1, 1.3)) #Zoom mit scale, Affine sorgt dafür, dass Linien im Bild erhalten bleiben
-  image = zoom.augment_image(image) #Apply die Zoom-Parameter auf das Bild
-  return image
+    zoom = iaa.Affine(scale=(1, 1.3)) #Zoom mit scale, Affine sorgt dafür, dass Linien im Bild erhalten bleiben
+    image = zoom.augment_image(image) #Apply die Zoom-Parameter auf das Bild
+    return image
 
 
 # Verschieben des Bildes
 def pan(image):
-  pan = iaa.Affine(translate_percent= {"x" : (-0.1, 0.1), "y": (-0.1, 0.1)})
-  image = pan.augment_image(image)
-  return image
+    pan = iaa.Affine(translate_percent= {"x" : (-0.1, 0.1), "y": (-0.1, 0.1)})
+    image = pan.augment_image(image)
+    return image
 
 
 # Rotieren des Bildes
 def rotate(image):
-  rotate = iaa.Affine(translate_percent= {"x" : (-0.1, 0.1), "y": (-0.1, 0.1)})
-  #image = pan.augment_image(image)
-  return image
+    rotate = iaa.Affine(translate_percent= {"x" : (-0.1, 0.1), "y": (-0.1, 0.1)})
+    # image = pan.augment_image(image)
+    return image
 
 
 # Helligkeit eines Bildes verändern
@@ -46,8 +46,8 @@ def img_random_brightness(image):
 
 # Farben eines Bildes verändern
 def img_random_color(image):
-    #brightness = iaa.Multiply((0.2, 1.2))
-    #image = brightness.augment_image(image)
+    # brightness = iaa.Multiply((0.2, 1.2))
+    # image = brightness.augment_image(image)
     return image
 
 
@@ -81,7 +81,7 @@ def img_preprocess(img):
     return img
 
 
-def batch_generator(image_paths, steering_ang, throttle_list, batch_size, istraining):
+def batch_generator(image_paths, steering_ang, batch_size, istraining): #, throttle_list
     while True:
         batch_img = []
         batch_steering = []
@@ -93,22 +93,21 @@ def batch_generator(image_paths, steering_ang, throttle_list, batch_size, istrai
             if istraining:  # falls die Funktion im Modelltraining aufgerufen werden soll, dann sollen die Bilder augmentiert werden
                 im = mpimg.imread(image_paths[random_index])
                 steering = steering_ang[random_index]
-                throttle = throttle_list[random_index]
+                # throttle = throttle_list[random_index]
             else:
                 print('die Einstellung für istraining ist falsch gewählt"')
 
             im = img_preprocess(im)
             batch_img.append(im)
             batch_steering.append(steering)
-            batch_throttle.append(throttle)
+            # batch_throttle.append(throttle)
 
-        yield (np.asarray(batch_img), np.asarray(batch_steering), np.asarray(batch_throttle))
+        yield (np.asarray(batch_img), np.asarray(batch_steering))   # , np.asarray(batch_throttle))
 
 
 def nvidia_model():
     model = Sequential()
     model.add(Conv2D(24, kernel_size=(5, 5), strides=(2, 2), input_shape=(66, 200, 3), activation='relu'))
-
     model.add(Conv2D(36, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(48, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
@@ -152,9 +151,6 @@ def load_img_steering(datadir, data):
     throttle = np.asarray(throttle)
     return image_paths, steerings, throttle
 
-# Train-Test-Split durchführen
-# X_train, X_valid, y_train, y_valid = train_test_split(image_paths, steerings, test_size=0.2, random_state=6)
-# print('Training Samples: {}\nValid Samples: {}'.format(len(X_train), len(X_valid)))
 
 def img_preprocess(img):
     #img = img[60:135,:,:] #Das Bild kann zugeschnitten werden auf einen bestimmten Bereich
@@ -169,36 +165,35 @@ data = pd.read_csv("daten/data.csv", sep=',') #sep = ';' falls mit ; getrennt
 
 image_paths, steerings, throttle = load_img_steering('daten/img/', data)
 
+combined_data = [steerings, throttle]
+
+combined_data = np.swapaxes(combined_data, 0, 1)    #tauscht die Achsen des Arrays
+
+# Train-Test-Split durchführen
+# statt steerings später combined data, Modell muss aber angepasst werden
+X_train, X_valid, y_train, y_valid = train_test_split(image_paths, steerings, test_size=0.2, random_state=6)
+
 model = nvidia_model()
 print(model.summary())
 
 # Hier könnte man ein earyl-stopping integrieren, dass das Training abgebrochen wird, wenn die Validation_loss wieder steigt
 early_stopping_callback = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True, verbose=1)
-#history = model.fit(X_train, y_train,
- #                                 epochs=20,
-  #                                validation_data=X_valid, y_valid,
-   #                               callbacks=[early_stopping_callback])
-    #                              verbose=1,
-     #                             shuffle = 1)
-history = model.fit_generator(batch_generator(image_paths, steerings, throttle, 100, 1),
-                                  steps_per_epoch=30,
-                                  epochs=2,
+batch_size = 50 # willkürlich auf 50
+history = model.fit(batch_generator(X_train, y_train, batch_size, 1),
+                                  steps_per_epoch=int(len(X_train)/batch_size), # Die gesamte Anzahl an Bildern geteilt durch die batch_size, mit der der batch_generator aufgerufen wird, ist die Anzahl wie oft das Training aufgerufen wird
+                                  validation_data=batch_generator(X_valid, y_valid, 10, 1), #validation funktioniert noch nicht
+                                  validation_steps=10, # so oft wird der batch_generator aufgerufen, um zu validieren https://stackoverflow.com/questions/45943675/meaning-of-validation-steps-in-keras-sequential-fit-generator-parameter-list
+                                  epochs=10,
                                   callbacks=[early_stopping_callback],
                                   verbose=1,
                                   shuffle = 1)
-#history = model.fit_generator(batch_generator(image_paths, steerings, throttle, 100, 1),
- #                                 steps_per_epoch=300,
-  #                                epochs=10,
- #                                validation_data=batch_generator(X_valid, y_valid, 100, 0),
-  #                                validation_steps=200,
-   #                               verbose=1,
-    #                              shuffle = 1)
 
 plt.plot(history.history['loss'])
-# plt.plot(history.history['val_loss'])
-# plt.legend(['training', 'validation'])
-plt.legend(['training'])
+plt.plot(history.history['val_loss'])
+plt.legend(['training', 'validation'])
 plt.title('Loss')
 plt.xlabel('Epoch')
+plt.show()
 
 model.save('model.h5') #Hier kann das Modell gespeichert werden, um es später zu verwenden
+print("ende")

@@ -40,7 +40,7 @@ class MyController(Controller):
     def on_circle_press(self): # ist die x-Taste obwohl hier circle steht
         self.modus_taste = 1
     
-    def on_x_press(self): # ist die x-Taste obwohl hier circle steht
+    def on_x_press(self): # ist die viereck-Taste obwohl hier circle steht
         self.modus_taste = 0
  
 #____________________
