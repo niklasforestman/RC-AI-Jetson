@@ -16,7 +16,7 @@ import pandas as pd
 import ntpath
 import random
 
-
+# Dies sind Funktionen, mit denen die Bilder augmentiert werden
 def zoom(image):
     zoom = iaa.Affine(scale=(1, 1.3)) #Zoom mit scale, Affine sorgt dafür, dass Linien im Bild erhalten bleiben
     image = zoom.augment_image(image) #Apply die Zoom-Parameter auf das Bild
@@ -32,6 +32,7 @@ def pan(image):
 
 # Rotieren des Bildes
 def rotate(image):
+    # TODO
     rotate = iaa.Affine(translate_percent= {"x" : (-0.1, 0.1), "y": (-0.1, 0.1)})
     # image = pan.augment_image(image)
     return image
@@ -39,13 +40,14 @@ def rotate(image):
 
 # Helligkeit eines Bildes verändern
 def img_random_brightness(image):
-    brightness = iaa.Multiply((0.2, 1.2))
+    brightness = iaa.Multiply((0.2, 1.2)) # Kann sich einer mal reinziehen, wie das ist wenn Werte über 255
     image = brightness.augment_image(image)
     return image
 
 
 # Farben eines Bildes verändern
 def img_random_color(image):
+    # TODO
     # brightness = iaa.Multiply((0.2, 1.2))
     # image = brightness.augment_image(image)
     return image
@@ -59,20 +61,31 @@ def img_random_flip(image, steering_angle):
 
 
 def random_augment(image, steering_angle):
-    image = mpimg.imread(image)
+    '''
+    In dieser Funktion wird das Bild zufällig mehrfach verändert und zurückgegeben
+    :param image: Bild
+    :param steering_angle: Lenkwinkel
+    :return: Bild und Lenkwinkel
+    '''
+    #image = mpimg.imread(image)
     if np.random.rand() < 0.5:
-        image = pan(image)
+        image = pan(image) # Verschieben
     if np.random.rand() < 0.5:
-        image = zoom(image)
+        image = zoom(image) # Zoom
     if np.random.rand() < 0.5:
-        image = img_random_brightness(image)
+        image = img_random_brightness(image) # Heller machen
     if np.random.rand() < 0.5:
-        image, steering_angle = img_random_flip(image, steering_angle)
+        image, steering_angle = img_random_flip(image, steering_angle) # flip
 
     return image, steering_angle
 
 
 def img_preprocess(img):
+    '''
+    Das Bild wird vorbereitet für das Netzwerk
+    :param img: Bild
+    :return: Bild
+    '''
     #img = img[60:135,:,:] #Das Bild kann zugeschnitten werden auf einen bestimmten Bereich
     img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV) #colormap für NVIDIA-Model
     #img = cv2.GaussianBlur(img,  (3, 3), 0) #Blur um Bild zu smoothen
@@ -82,6 +95,15 @@ def img_preprocess(img):
 
 
 def batch_generator(image_paths, steering_ang, batch_size, istraining): #, throttle_list
+    '''
+    Der batch_generator läd pro Funktionsaufruf eine batch_size-große Anzahl an Bildern mit zugehörigen Lenkwinkeln. Die Bilder werden zufällig manipuliert
+    und dann normalisiert und für das Netzwerk vorbereitet. Der Funktionsaufruf erfolgt beim Trainieren des Netzwerks
+    :param image_paths: Pfad zu allen Bildern, mit denen trainiert werden sollen
+    :param steering_ang: Liste mit allen Lenkwinkeln
+    :param batch_size: Anzahl wie viele Bilder pro Funktionsaufruf geladen werden sollen
+    :param istraining: Soll trainiert werden oder nicht
+    :return:
+    '''
     while True:
         batch_img = []
         batch_steering = []
@@ -97,8 +119,9 @@ def batch_generator(image_paths, steering_ang, batch_size, istraining): #, throt
             else:
                 print('die Einstellung für istraining ist falsch gewählt"')
 
-            im = img_preprocess(im)
-            batch_img.append(im)
+            im, steering = random_augment(im, steering) # Bild werden zufällig verändert
+            im = img_preprocess(im) # Die zufällig veränderten Bilder werden für das Netzwerk vorbereitet. Aufruf nach dem Augmentieren, dass die Bilder für das Netzwerk wirklich alle gleich sind
+            batch_img.append(im) # Das Bild 'im' wird an das Numpy Array batch_img angehängt
             batch_steering.append(steering)
             # batch_throttle.append(throttle)
 
@@ -151,16 +174,6 @@ def load_img_steering(datadir, data):
     throttle = np.asarray(throttle)
     return image_paths, steerings, throttle
 
-
-def img_preprocess(img):
-    #img = img[60:135,:,:] #Das Bild kann zugeschnitten werden auf einen bestimmten Bereich
-  img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV) #colormap für NVIDIA-Model
-    #img = cv2.GaussianBlur(img,  (3, 3), 0) #Blur um Bild zu smoothen
-  img = cv2.resize(img, (200, 66)) #Auf richtige Größe für Model bringen
-  img = img/255 #Bild normalisieren
-  return img
-
-
 data = pd.read_csv("daten/data.csv", sep=',') #sep = ';' falls mit ; getrennt
 
 image_paths, steerings, throttle = load_img_steering('daten/img/', data)
@@ -177,13 +190,13 @@ model = nvidia_model()
 print(model.summary())
 
 # Hier könnte man ein earyl-stopping integrieren, dass das Training abgebrochen wird, wenn die Validation_loss wieder steigt
-early_stopping_callback = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True, verbose=1)
-batch_size = 50 # willkürlich auf 50
+early_stopping_callback = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
+batch_size = 32 # willkürlich auf 50
 history = model.fit(batch_generator(X_train, y_train, batch_size, 1),
-                                  steps_per_epoch=int(len(X_train)/batch_size), # Die gesamte Anzahl an Bildern geteilt durch die batch_size, mit der der batch_generator aufgerufen wird, ist die Anzahl wie oft das Training aufgerufen wird
+                                  steps_per_epoch=int(len(X_train)/batch_size)*2, # Die gesamte Anzahl an Bildern geteilt durch die batch_size, mit der der batch_generator aufgerufen wird, ist die Anzahl wie oft das Training aufgerufen wird
                                   validation_data=batch_generator(X_valid, y_valid, 10, 1), #validation funktioniert noch nicht
-                                  validation_steps=10, # so oft wird der batch_generator aufgerufen, um zu validieren https://stackoverflow.com/questions/45943675/meaning-of-validation-steps-in-keras-sequential-fit-generator-parameter-list
-                                  epochs=10,
+                                  validation_steps=int(len(X_train)/10)*0.25, # so oft wird der batch_generator aufgerufen, um zu validieren https://stackoverflow.com/questions/45943675/meaning-of-validation-steps-in-keras-sequential-fit-generator-parameter-list
+                                  epochs=100,
                                   callbacks=[early_stopping_callback],
                                   verbose=1,
                                   shuffle = 1)
