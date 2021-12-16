@@ -15,6 +15,9 @@ import cv2
 import pandas as pd
 import ntpath
 import random
+import time
+
+dirname = os.path.dirname(__file__)
 
 # Dies sind Funktionen, mit denen die Bilder augmentiert werden
 def zoom(image):
@@ -40,7 +43,7 @@ def rotate(image):
 
 # Helligkeit eines Bildes verändern
 def img_random_brightness(image):
-    brightness = iaa.Multiply((0.2, 1.2)) # Kann sich einer mal reinziehen, wie das ist wenn Werte über 255
+    brightness = iaa.Multiply((0.5, 1.2)) # Kann sich einer mal reinziehen, wie das ist wenn Werte über 255
     image = brightness.augment_image(image)
     return image
 
@@ -68,8 +71,8 @@ def random_augment(image, steering_angle):
     :return: Bild und Lenkwinkel
     '''
     #image = mpimg.imread(image)
-    if np.random.rand() < 0.5:
-        image = pan(image) # Verschieben
+    # if np.random.rand() < 0.5:
+    #     image = pan(image) # Verschieben
     if np.random.rand() < 0.5:
         image = zoom(image) # Zoom
     if np.random.rand() < 0.5:
@@ -89,7 +92,7 @@ def img_preprocess(img):
     #img = img[60:135,:,:] #Das Bild kann zugeschnitten werden auf einen bestimmten Bereich
     img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV) #colormap für NVIDIA-Model
     #img = cv2.GaussianBlur(img,  (3, 3), 0) #Blur um Bild zu smoothen
-    img = cv2.resize(img, (200, 66)) #Auf richtige Größe für Model bringen
+    img = cv2.resize(img, (100, 100)) #Auf richtige Größe für Model bringen
     img = img/255 #Bild normalisieren
     return img
 
@@ -116,11 +119,13 @@ def batch_generator(image_paths, steering_ang, batch_size, istraining): #, throt
                 im = mpimg.imread(image_paths[random_index])
                 steering = steering_ang[random_index]
                 # throttle = throttle_list[random_index]
+
             else:
                 print('die Einstellung für istraining ist falsch gewählt"')
 
             im, steering = random_augment(im, steering) # Bild werden zufällig verändert
             im = img_preprocess(im) # Die zufällig veränderten Bilder werden für das Netzwerk vorbereitet. Aufruf nach dem Augmentieren, dass die Bilder für das Netzwerk wirklich alle gleich sind
+            # cv2.imwrite(dirname + "/Output/" + str(time.time()*1000000) + ".jpg", im*255)
             batch_img.append(im) # Das Bild 'im' wird an das Numpy Array batch_img angehängt
             batch_steering.append(steering)
             # batch_throttle.append(throttle)
@@ -130,7 +135,7 @@ def batch_generator(image_paths, steering_ang, batch_size, istraining): #, throt
 
 def nvidia_model():
     model = Sequential()
-    model.add(Conv2D(24, kernel_size=(5, 5), strides=(2, 2), input_shape=(66, 200, 3), activation='relu'))
+    model.add(Conv2D(24, kernel_size=(5, 5), strides=(2, 2), input_shape=(100, 100, 3), activation='relu'))
     model.add(Conv2D(36, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(48, kernel_size=(5, 5), strides=(2, 2), activation='relu'))
     model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
@@ -149,9 +154,10 @@ def nvidia_model():
     model.add(Dense(10, activation='elu'))
     #   model.add(Dropout(0.5))
 
-    model.add(Dense(2))  # Der letzte Layer hat zwei Knoten, einmal für steering_angle und einmal für Gas/Bremse
+#    model.add(Dense(2))  # Der letzte Layer hat zwei Knoten, einmal für steering_angle und einmal für Gas/Bremse
+    model.add(Dense(1))  # Der letzte Layer hat einen Knoten für steering
 
-    optimizer = Adam(lr=1e-3)
+    optimizer = Adam(lr=1e-4)
     model.compile(loss='mse', optimizer=optimizer)  # Mean Squared Error
     return model
 
@@ -188,15 +194,18 @@ X_train, X_valid, y_train, y_valid = train_test_split(image_paths, steerings, te
 
 model = nvidia_model()
 print(model.summary())
+print(X_train)
+
+print(y_train)
 
 # Hier könnte man ein earyl-stopping integrieren, dass das Training abgebrochen wird, wenn die Validation_loss wieder steigt
 early_stopping_callback = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True, verbose=1)
-batch_size = 32 # willkürlich auf 50
+batch_size = 8 # willkürlich auf 50
 history = model.fit(batch_generator(X_train, y_train, batch_size, 1),
                                   steps_per_epoch=int(len(X_train)/batch_size)*2, # Die gesamte Anzahl an Bildern geteilt durch die batch_size, mit der der batch_generator aufgerufen wird, ist die Anzahl wie oft das Training aufgerufen wird
-                                  validation_data=batch_generator(X_valid, y_valid, 10, 1), #validation funktioniert noch nicht
+                                  validation_data=batch_generator(X_valid, y_valid, 10, 1),
                                   validation_steps=int(len(X_train)/10)*0.25, # so oft wird der batch_generator aufgerufen, um zu validieren https://stackoverflow.com/questions/45943675/meaning-of-validation-steps-in-keras-sequential-fit-generator-parameter-list
-                                  epochs=100,
+                                  epochs=1000,
                                   callbacks=[early_stopping_callback],
                                   verbose=1,
                                   shuffle = 1)

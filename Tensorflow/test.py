@@ -7,6 +7,7 @@ import matplotlib.image as mpimg
 
 import keras
 import cv2
+import re
 import pandas as pd
 import ntpath
 import random
@@ -16,7 +17,7 @@ def img_preprocess(img):
     #img = img[60:135,:,:] #Das Bild kann zugeschnitten werden auf einen bestimmten Bereich
     img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV) #colormap für NVIDIA-Model
     #img = cv2.GaussianBlur(img,  (3, 3), 0) #Blur um Bild zu smoothen
-    img = cv2.resize(img, (200, 66)) #Auf richtige Größe für Model bringen
+    img = cv2.resize(img, (100, 100)) #Auf richtige Größe für Model bringen
     img = img/255 #Bild normalisieren
     return img
 
@@ -37,7 +38,9 @@ print(model.summary())
 dirname = os.path.dirname(__file__)
 imagepath = dirname + "/daten/img"
 images = os.listdir(imagepath)
-
+print(images)
+images.sort(key=lambda f: int(re.sub('\D', '', f)))
+print(images)
 true_data = np.genfromtxt(("daten/data.csv"), delimiter=',')    # alte csv in Array lesen
 true_data = np.delete(true_data, 0, axis=0)     # labels entfernen
 
@@ -58,16 +61,15 @@ for image in images:
     model_output = model.predict(im)
 
     steering_value = model_output[0][0]
-    throttle_value = model_output[0][1]
     steering_plot.append(steering_value)
     try:
+        print("Image:", image, "steering value:", steering_value, ", true value: ", true_data[counter][3])
         throttle_plot.append(true_data[counter][3])
     except IndexError:
         pass
     counter += 1
 
 
-    print("Image:", image, "steering value:", steering_value, "throttle value:", throttle_value)
 
 plt.plot(steering_plot)
 plt.plot(throttle_plot)

@@ -3,6 +3,7 @@ import os
 import csv
 import numpy as np
 import shutil
+import re
 
 fusions_daten = "fusions_daten"     # Ordnername mit den Bilder und der csv
 dirname = os.path.dirname(__file__)
@@ -26,7 +27,9 @@ counter = 0
 for ordner in unter_ordner:     # Input Ordner durch gehen
     print("Ordner:", ordner, "wird kopiert")
     csv_path = dirname + "/" + fusions_daten + "/" + ordner + "/data.csv"
-    images = os.listdir(dirname + "/" + fusions_daten + "/" + ordner + "/img")  # liste aller Input Bilder
+    images = os.listdir(dirname + "/" + fusions_daten + "/" + ordner + "/img", )  # liste aller Input Bilder
+    images.sort(key=lambda f: int(re.sub('\D', '', f)))
+    print(images)
     csv_inhalt = np.genfromtxt((csv_path), delimiter=',')    # input csv in Array lesen
     for index, line in enumerate(csv_inhalt):   # alle input Elemente des input Ordners duchgehen
         if index > 0:   # Kopzeile entfällt
@@ -36,6 +39,7 @@ for ordner in unter_ordner:     # Input Ordner durch gehen
                 data = csv_inhalt[index]
                 myCSV_writer.writerow([counter, data[1], data[2], data[3]])  # schreibt diese Zeile in die CSV Datei
 
-            img = cv2.imread(images[index-1])
+            img = cv2.imread(dirname + "/" + fusions_daten + "/" + ordner + "/img/" + images[index-1])
             # normales Bild speichern
             cv2.imwrite(dirname + "/Output/img/" + str(counter) + ".jpg", img)
+
